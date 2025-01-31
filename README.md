@@ -18,7 +18,7 @@
    ```bash
    git clone https://github.com/wolkendolf/tlab_MultimodalLLM
    cd tlab_MultimodalLLM
-  ```
+   ```
 
 2. **Установите необходимые пакеты Python**:
     ```bash
