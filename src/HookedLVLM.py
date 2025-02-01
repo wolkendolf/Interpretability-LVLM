@@ -13,13 +13,7 @@ import os
 import yaml
 
 file_path = os.path.dirname(__file__)
-config_file = os.path.join(file_path, "config.yaml")
-with open(config_file, "r") as f:
-    config = yaml.safe_load(f)
-
-model_cache_dir = config["cache_dir"]
-if model_cache_dir is None:
-    model_cache_dir = os.path.join(file_path, "..", "models")
+model_cache_dir = os.path.join(file_path, "..", "models")
 
 
 class HookedLVLM:
@@ -33,42 +27,13 @@ class HookedLVLM:
         quantize: bool = False,
         quantize_type: str = "fp16",
     ):
-        if quantize:
-            if quantize_type == "4bit":
-                # Initialize the model and processor
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16,
-                )
-                self.model = LlavaForConditionalGeneration.from_pretrained(
-                    model_id,
-                    torch_dtype=torch.float16,
-                    low_cpu_mem_usage=True,
-                    quantization_config=bnb_config,
-                    device_map=device,
-                    cache_dir=model_cache_dir,
-                )
-            elif quantize_type == "fp16":
-                self.model = LlavaForConditionalGeneration.from_pretrained(
-                    model_id,
-                    torch_dtype=torch.float16,
-                    low_cpu_mem_usage=True,
-                    device_map=device,
-                    cache_dir=model_cache_dir,
-                )
-            elif quantize_type == "int8":
-                self.model = LlavaForConditionalGeneration.from_pretrained(
-                    model_id,
-                    torch_dtype=torch.int8,
-                    low_cpu_mem_usage=True,
-                    device_map=device,
-                    cache_dir=model_cache_dir,
-                )
-        else:
-            self.model = LlavaForConditionalGeneration.from_pretrained(
-                model_id, device_map=device, cache_dir=model_cache_dir
-            )
-
+        self.model = LlavaForConditionalGeneration.from_pretrained(
+            model_id,
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            device_map=device,
+            cache_dir=model_cache_dir,
+        )
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.hook_loc = hook_loc
         self.data = None
