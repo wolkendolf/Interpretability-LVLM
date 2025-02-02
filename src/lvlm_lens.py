@@ -5,14 +5,30 @@ import base64
 from io import BytesIO
 from PIL import Image
 
-def create_interactive_logit_lens(hidden_states, norm, lm_head, tokenizer, image, model_name, image_filename, prompt, save_folder = ".", image_size=336, patch_size=14, misc_text=""):
+
+def create_interactive_logit_lens(
+    hidden_states,
+    norm,
+    lm_head,
+    tokenizer,
+    image,
+    model_name,
+    image_filename,
+    prompt,
+    save_folder=".",
+    image_size=336,
+    patch_size=14,
+    misc_text="",
+):
     # Tokenize the prompt
     input_ids = tokenizer.encode(prompt)
-    
+
     # Find the image token and replace it with image tokens
     img_token_id = 32000  # The token ID for <img>
-    img_token_count = (image_size // patch_size) ** 2  # 576 for 336x336 image with 14x14 patches
-    
+    img_token_count = (
+        image_size // patch_size
+    ) ** 2  # 576 for 336x336 image with 14x14 patches
+
     token_labels = []
     for token_id in input_ids:
         if token_id == img_token_id:
@@ -20,34 +36,36 @@ def create_interactive_logit_lens(hidden_states, norm, lm_head, tokenizer, image
             token_labels.extend([f"<IMG{(i+1):03d}>" for i in range(img_token_count)])
         else:
             token_labels.append(tokenizer.decode([token_id]))
-    
+
     # Exclude the input embedding layer if it's included
     num_layers = len(hidden_states)
     sequence_length = hidden_states[0].size(1)
-    
+
     all_top_tokens = []
-    
+
     for layer in range(num_layers):
         layer_hidden_states = hidden_states[layer]
-        
+
         # Apply norm and lm_head
         normalized = norm(layer_hidden_states)
         logits = lm_head(normalized)
-        
+
         # Get probabilities
         probs = torch.softmax(logits, dim=-1)
-        
+
         # Get top 5 tokens and their probabilities for each position
         top_5_values, top_5_indices = torch.topk(probs, k=5, dim=-1)
-        
+
         layer_top_tokens = []
         for pos in range(sequence_length):
-            top_5_tokens = [tokenizer.decode(idx.item()) for idx in top_5_indices[0, pos]]
+            top_5_tokens = [
+                tokenizer.decode(idx.item()) for idx in top_5_indices[0, pos]
+            ]
             top_5_probs = [f"{prob.item():.4f}" for prob in top_5_values[0, pos]]
             layer_top_tokens.append(list(zip(top_5_tokens, top_5_probs)))
-        
+
         all_top_tokens.append(layer_top_tokens)
-    
+
     # Process the image: central crop and resize
     img_w, img_h = image.size
     min_dim = min(img_w, img_h)
@@ -57,12 +75,12 @@ def create_interactive_logit_lens(hidden_states, norm, lm_head, tokenizer, image
     bottom = (img_h + min_dim) / 2
     image_cropped = image.crop((left, top, right, bottom))
     image_resized = image_cropped.resize((image_size, image_size), Image.LANCZOS)
-    
+
     # Convert image to base64
     buffered = BytesIO()
     image_resized.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
-    
+
     # Generate HTML
     html_content = """
 <!DOCTYPE html>
@@ -227,7 +245,8 @@ def create_interactive_logit_lens(hidden_states, norm, lm_head, tokenizer, image
     }
 
     function showTooltip(e, layer, pos, shouldScroll = false) {
-        tooltip.innerHTML = data[layer][pos].map(([token, prob]) => `${token}: ${prob}`).join('<br>');
+        tooltip.innerHTML = `L${layer + 1} <br>` + 
+            data[layer][pos].map(([token, prob]) => `${token}: ${prob}`).join('<br>');
         tooltip.style.display = 'block';
         updateTooltipPosition(e);
         
@@ -305,14 +324,16 @@ def create_interactive_logit_lens(hidden_states, norm, lm_head, tokenizer, image
             highlightedRow = null;
         }
     }
-
+    
     image.addEventListener('mousemove', (e) => {
         if (!isLocked) {
             const patchIndex = getPatchIndexFromMouseEvent(e);
             highlightImagePatch(patchIndex);
             const tokenIndex = getTokenIndexFromPatchIndex(patchIndex);
             if (tokenIndex !== -1) {
-                showTooltip(e, 0, tokenIndex, true);
+                // Determine the layer with the highest confidence for the given position
+                const bestLayer = getBestLayerForToken(tokenIndex);
+                showTooltip(e, bestLayer, tokenIndex, true);
             }
         }
     });
@@ -356,30 +377,44 @@ def create_interactive_logit_lens(hidden_states, norm, lm_head, tokenizer, image
     function getTokenIndexFromPatchIndex(patchIndex) {
         return tokenLabels.findIndex(label => label === `<IMG${patchIndex.toString().padStart(3, '0')}>`);
     }
+    // Determining the layer with the highest confidence
+    function getBestLayerForToken(pos) {
+        let bestLayer = 0;
+        let bestProb = parseFloat(data[0][pos][0][1]);
+        for (let l = 1; l < data.length; l++) {
+            const currentProb = parseFloat(data[l][pos][0][1]);
+            if (currentProb > bestProb) {
+                bestProb = currentProb;
+                bestLayer = l;
+            }
+        }
+        return bestLayer;
+    }   
+
 </script>
 </body>
 </html>
     """
-    
-    # Replace placeholders
-    html_content = html_content.replace('IMAGEPLACEHOLDER', img_str)
-    html_content = html_content.replace('DATAPLACEMENT', json.dumps(all_top_tokens))
-    html_content = html_content.replace('TOKENLABELSPLACEMENT', json.dumps(token_labels))
-    html_content = html_content.replace('IMAGESIZEPLACEHOLDER', str(image_size))
-    html_content = html_content.replace('PATCHSIZEPLACEHOLDER', str(patch_size))
-    html_content = html_content.replace('PROMPTPLACEHOLDER', prompt)  # Add this line
-    html_content = html_content.replace('MISCPLACEHOLDER', misc_text)  # Add this line
 
-    
+    # Replace placeholders
+    html_content = html_content.replace("IMAGEPLACEHOLDER", img_str)
+    html_content = html_content.replace("DATAPLACEMENT", json.dumps(all_top_tokens))
+    html_content = html_content.replace(
+        "TOKENLABELSPLACEMENT", json.dumps(token_labels)
+    )
+    html_content = html_content.replace("IMAGESIZEPLACEHOLDER", str(image_size))
+    html_content = html_content.replace("PATCHSIZEPLACEHOLDER", str(patch_size))
+    html_content = html_content.replace("PROMPTPLACEHOLDER", prompt)  # Add this line
+    html_content = html_content.replace("MISCPLACEHOLDER", misc_text)  # Add this line
+
     # Create filename using model name and image filename
     output_filename = f"{model_name}_{Path(image_filename).stem}_logit_lens.html"
-    
+
     # Join save folder and filename
     output_path = Path(save_folder) / output_filename
 
     # Write to file
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write(html_content)
-    
-    print(f"Interactive logit lens HTML has been saved to: {output_path}")
 
+    print(f"Interactive logit lens HTML has been saved to: {output_path}")

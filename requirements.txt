@@ -8,6 +8,7 @@ pillow==10.4.0
 pycocotools==2.0.8
 PyYAML==6.0.2
 requests==2.32.3
-torch==2.1.1+cu121
 tqdm==4.66.5
 transformers==4.45.2
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.1.1+cu121
