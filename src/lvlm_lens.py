@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 def create_interactive_logit_lens(
@@ -418,3 +418,35 @@ def create_interactive_logit_lens(
         f.write(html_content)
 
     print(f"Interactive logit lens HTML has been saved to: {output_path}")
+
+    modified_img = image_resized.copy()
+    draw = ImageDraw.Draw(modified_img)
+    grid_size = image_size // patch_size
+    num_layers = len(all_top_tokens)
+    total_patches = grid_size * grid_size
+
+    for patch_index in range(1, total_patches + 1):
+        token_label = f"<IMG{patch_index:03d}>"
+        if token_label in token_labels:
+            pos = token_labels.index(token_label)
+            best_layer = 0
+            best_prob = float(all_top_tokens[0][pos][0][1])
+            for l in range(1, num_layers):
+                current_prob = float(all_top_tokens[l][pos][0][1])
+                if current_prob > best_prob:
+                    best_prob = current_prob
+                    best_layer = l
+            best_token = all_top_tokens[best_layer][pos][0][0]
+            if best_token.strip() == "":
+                row = (patch_index - 1) // grid_size
+                col = (patch_index - 1) % grid_size
+                left = col * patch_size
+                top = row * patch_size
+                right = left + patch_size
+                bottom = top + patch_size
+                draw.rectangle([left, top, right, bottom], fill=(0, 0, 0))
+
+    output_imagename = f"{Path(image_filename).stem}_modified.png"
+    output_image_path = Path(save_folder) / output_imagename
+    modified_img.save(output_image_path)
+    print(f"Modified image saved to: {output_image_path}")
