@@ -25,8 +25,8 @@
 1. **Клонируйте репозиторий:**
    ```bash
    git clone https://github.com/wolkendolf/tlab_MultimodalLLM.git
-   mkdir save_folder
    cd tlab_MultimodalLLM
+   mkdir save_folder
    ```
 
 2. **Установите необходимые пакеты Python:**
