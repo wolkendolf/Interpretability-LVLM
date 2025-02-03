@@ -38,10 +38,10 @@
   В своей работе я провожу исследования с моделью `llava-1.5-7b`. Следующий код запускает модель и создает интерактивный HTML файл для иллюстрации работы logit lens. Если на одной GPU меньше 16Gb видеопамяти, используйте первую строку кода, иначе вторую. Флаг `CUDA_VISIBLE_DEVICES=0,1` указывает видеокарты, которые будут использоваться.
 
     ```bash
-    `CUDA_VISIBLE_DEVICES=0,1 python3 scripts/create_logit_lens.py --image_folder ./images --save_folder ./save_folder --device auto`
+    CUDA_VISIBLE_DEVICES=0,1 python3 scripts/create_logit_lens.py --image_folder ./images --save_folder ./save_folder --device auto
     ```
     ```bash 
-    `python3 scripts/create_logit_lens.py --image_folder ./images --save_folder ./save_folder` если на одной GPU больше чем 16Gb видеопамяти.
+    python3 scripts/create_logit_lens.py --image_folder ./images --save_folder ./save_folder
     ```
 
 ## Использование
@@ -79,7 +79,7 @@ $$
 
 ### 2. Работа с полученным HTML-файлом
 При наведении курсора на изображение всплывает окно с информацией о:
- - номере слоя, где модель наиболее уверенна в ответе;
+ - номере слоя, где модель достигает наибольшей уверенности в ответе;
  - соответствующие слою топ-5 токенов по принципу "токен" : "уверенность модели в ответе".  
   <img src="./images_for_readme/work_with_html.png" width="400">
 
