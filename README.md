@@ -1,7 +1,5 @@
 # Multimodal LLM Interpretability
 
-Этот репозиторий является решением тестового задания зимы 2025 в TLab.
-
 ## Оглавление
 - [Multimodal LLM Interpretability](#multimodal-llm-interpretability)
   - [Оглавление](#оглавление)
